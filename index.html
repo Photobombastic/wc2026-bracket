@@ -77,6 +77,11 @@
   .row .name small { color: var(--muted); font-weight: 600; font-size: 11px; margin-left: 2px; }
   .row .score { font-variant-numeric: tabular-nums; font-weight: 700; min-width: 18px; text-align: right; color: var(--text); }
   .row .pen { color: var(--muted); font-size: 11px; font-weight: 600; margin-left: 2px; }
+  .row .winpct {
+    font-variant-numeric: tabular-nums; font-weight: 600; font-size: 12px;
+    min-width: 36px; text-align: right; color: var(--muted);
+  }
+  .row .winpct.fav { color: #7db5ff; }   /* favourite gets the brighter % */
 
   .row.tbd .name { color: var(--muted); font-style: italic; }
   .row.win { background: linear-gradient(90deg, rgba(54,211,153,.16), transparent); }
@@ -110,6 +115,7 @@
     <div class="legend">
       <span><span class="dot" style="background:var(--accent)"></span>Winner (advances)</span>
       <span><span class="dot" style="background:var(--muted)"></span>Awaiting result / TBD</span>
+      <span><span class="dot" style="background:#7db5ff"></span>Win % — Elo expectancy from FIFA ranking (upcoming matches only)</span>
       <span><span class="dot" style="background:var(--gold)"></span>Final</span>
     </div>
   </header>
@@ -184,18 +190,30 @@
     { key: 'FINAL', label: 'Final' }
   ];
 
-  function teamMarkup(slot, scoreNum, isWinner, isLoser, penNum) {
+  // Elo win-expectancy: probability A beats B, as an integer percent. null if no ratings.
+  function winProb(rA, rB) {
+    if (rA == null || rB == null) return null;
+    return Math.round(100 / (1 + Math.pow(10, -((rA - rB) / 400))));
+  }
+
+  function teamMarkup(slot, scoreNum, isWinner, isLoser, penNum, winPct, isFav) {
     var name = resolveSlot(slot);
     var cls = 'row';
-    var inner;
+    var inner, right;
     if (name) {
       var t = teams[name] || { flag: '🏳️', code: '' };
       if (isWinner) cls += ' win';
       if (isLoser)  cls += ' lose';
-      var pen = (penNum != null) ? ' <span class="pen">(' + penNum + ' p)</span>' : '';
+      if (scoreNum != null) {
+        var pen = (penNum != null) ? ' <span class="pen">(' + penNum + ' p)</span>' : '';
+        right = '<span class="score">' + scoreNum + pen + '</span>';
+      } else if (winPct != null) {
+        right = '<span class="winpct' + (isFav ? ' fav' : '') + '">' + winPct + '%</span>';
+      } else {
+        right = '<span class="score"></span>';
+      }
       inner = '<span class="flag">' + t.flag + '</span>' +
-              '<span class="name">' + name + ' <small>' + (t.code || '') + '</small></span>' +
-              '<span class="score">' + (scoreNum != null ? scoreNum : '') + pen + '</span>';
+              '<span class="name">' + name + ' <small>' + (t.code || '') + '</small></span>' + right;
     } else {
       cls += ' tbd';
       // show the wiring hint (e.g. "Winner M79") rather than a bare blank
@@ -204,17 +222,36 @@
     return '<div class="' + cls + '">' + inner + '</div>';
   }
 
+  var DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  var MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  // "2026-06-28" -> "Sun, Jun 28" (parsed as local noon to avoid TZ rollover)
+  function fmtDate(iso) {
+    if (!iso) return '';
+    var p = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!p) return iso;
+    var dt = new Date(+p[1], +p[2] - 1, +p[3], 12);
+    return DOW[dt.getDay()] + ', ' + MON[+p[2] - 1] + ' ' + (+p[3]);
+  }
+
   function matchMarkup(m) {
     var ps = parseScore(m.score);
     var d = decide(m);
     var homeName = resolveSlot(m.home), awayName = resolveSlot(m.away);
     var hWin = d && d.winner === homeName, aWin = d && d.winner === awayName;
-    var dateStr = m.date || '';
+    var dateStr = fmtDate(m.date);
     var venue = (m.venue || '').split(',')[0];
+
+    // Win % only for an UPCOMING match (no score) between two confirmed teams.
+    var pH = null, pA = null;
+    if (!ps && homeName && awayName && teams[homeName] && teams[awayName]) {
+      pH = winProb(teams[homeName].rating, teams[awayName].rating);
+      if (pH != null) pA = 100 - pH;
+    }
+
     return '<div class="match" title="' + (m.venue || '') + '">' +
       '<div class="match__meta"><span>M' + m.id + ' · ' + dateStr + '</span><span>' + venue + '</span></div>' +
-      teamMarkup(m.home, ps ? ps.h : null, hWin, d && !hWin && homeName, ps ? ps.penH : null) +
-      teamMarkup(m.away, ps ? ps.a : null, aWin, d && !aWin && awayName, ps ? ps.penA : null) +
+      teamMarkup(m.home, ps ? ps.h : null, hWin, d && !hWin && homeName, ps ? ps.penH : null, pH, pH != null && pH > pA) +
+      teamMarkup(m.away, ps ? ps.a : null, aWin, d && !aWin && awayName, ps ? ps.penA : null, pA, pA != null && pA > pH) +
     '</div>';
   }
 
