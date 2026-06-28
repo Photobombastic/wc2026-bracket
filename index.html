@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>World Cup 2026 — Live Bracket</title>
+<style>
+  :root {
+    --bg: #0b1020;
+    --panel: #131a2e;
+    --panel-2: #1a2440;
+    --line: #2a3454;
+    --text: #e8edf7;
+    --muted: #8a96b5;
+    --accent: #36d399;      /* winner / live green */
+    --gold: #f5c451;
+    --shadow: 0 6px 18px rgba(0,0,0,.35);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: radial-gradient(1200px 600px at 70% -10%, #1b2748 0%, var(--bg) 55%);
+    color: var(--text);
+    min-height: 100vh;
+  }
+  header {
+    padding: 22px 28px 10px;
+    border-bottom: 1px solid var(--line);
+  }
+  .title {
+    display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+  }
+  h1 { font-size: 26px; margin: 0; letter-spacing: .3px; }
+  h1 .ball { font-size: 24px; }
+  .sub { color: var(--muted); font-size: 13px; margin-top: 4px; }
+  .stamp { color: var(--gold); font-weight: 600; }
+  .legend {
+    display: flex; gap: 18px; flex-wrap: wrap;
+    margin-top: 10px; font-size: 12px; color: var(--muted);
+  }
+  .legend .dot { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:6px; vertical-align:middle; }
+
+  .scroller { overflow-x: auto; padding: 24px 28px 40px; }
+  .bracket {
+    display: flex; gap: 30px; align-items: stretch; min-width: max-content;
+  }
+  .round {
+    display: flex; flex-direction: column; justify-content: space-around;
+    gap: 14px; min-width: 210px;
+  }
+  .round__head {
+    text-align: center; font-size: 12px; letter-spacing: 1.5px;
+    text-transform: uppercase; color: var(--muted); margin-bottom: 4px;
+    position: sticky; top: 0;
+  }
+
+  .match {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .match__meta {
+    font-size: 10.5px; color: var(--muted);
+    padding: 5px 10px; border-bottom: 1px dashed var(--line);
+    display: flex; justify-content: space-between; gap: 8px;
+  }
+  .row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 10px; font-size: 14px;
+  }
+  .row + .row { border-top: 1px solid var(--line); }
+  .row .flag { width: 22px; text-align: center; font-size: 17px; }
+  .row .name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .name small { color: var(--muted); font-weight: 600; font-size: 11px; margin-left: 2px; }
+  .row .score { font-variant-numeric: tabular-nums; font-weight: 700; min-width: 18px; text-align: right; color: var(--text); }
+  .row .pen { color: var(--muted); font-size: 11px; font-weight: 600; margin-left: 2px; }
+
+  .row.tbd .name { color: var(--muted); font-style: italic; }
+  .row.win { background: linear-gradient(90deg, rgba(54,211,153,.16), transparent); }
+  .row.win .name { color: var(--accent); font-weight: 700; }
+  .row.lose { opacity: .55; }
+
+  .round--final .match { border-color: var(--gold); }
+  .champion {
+    margin-top: 16px; text-align: center;
+    background: var(--panel-2); border: 1px solid var(--gold); border-radius: 10px;
+    padding: 14px;
+  }
+  .champion .lbl { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--gold); }
+  .champion .who { font-size: 20px; font-weight: 800; margin-top: 6px; }
+  .champion .who.tbd { color: var(--muted); font-weight: 600; font-size: 15px; }
+
+  .third {
+    margin-top: 18px; padding-top: 12px; border-top: 1px dashed var(--line);
+  }
+  .third .round__head { text-align: left; }
+  footer { color: var(--muted); font-size: 12px; padding: 0 28px 28px; }
+  code { background: var(--panel-2); padding: 1px 6px; border-radius: 5px; color: var(--text); }
+</style>
+</head>
+<body>
+  <header>
+    <div class="title">
+      <h1><span class="ball">⚽</span> <span id="tournament">World Cup 2026</span> — Knockout Bracket</h1>
+    </div>
+    <div class="sub">Updated <span class="stamp" id="stamp">—</span> · winners advance automatically from real scores</div>
+    <div class="legend">
+      <span><span class="dot" style="background:var(--accent)"></span>Winner (advances)</span>
+      <span><span class="dot" style="background:var(--muted)"></span>Awaiting result / TBD</span>
+      <span><span class="dot" style="background:var(--gold)"></span>Final</span>
+    </div>
+  </header>
+
+  <div class="scroller">
+    <div class="bracket" id="bracket"></div>
+  </div>
+
+  <footer>
+    Data lives in <code>results.js</code>. To refresh, ask Claude Code:
+    <code>update the bracket results</code> — it fetches current scores from the web and rewrites that file.
+  </footer>
+
+<script src="results.js"></script>
+<script>
+(function () {
+  var data = window.WC_DATA;
+  if (!data) { document.getElementById('bracket').textContent = 'results.js failed to load.'; return; }
+
+  document.getElementById('tournament').textContent = data.tournament || 'World Cup 2026';
+  document.getElementById('stamp').textContent = data.lastUpdated || '—';
+
+  var teams = data.teams || {};
+  var byId = {};
+  data.matches.forEach(function (m) { byId[m.id] = m; });
+
+  // "2-1" or "1-1 (4-3 pen)" -> { h, a, penH, penA } | null
+  function parseScore(s) {
+    if (!s || typeof s !== 'string') return null;
+    var reg = s.match(/(\d+)\s*[-–]\s*(\d+)/);
+    if (!reg) return null;
+    var out = { h: +reg[1], a: +reg[2], penH: null, penA: null };
+    var pen = s.match(/\((\d+)\s*[-–]\s*(\d+)\s*(?:pen|p)\b/i);
+    if (pen) { out.penH = +pen[1]; out.penA = +pen[2]; }
+    return out;
+  }
+
+  // Resolve a slot ("Mexico" | "Winner M79" | "Loser M101") to a team name, or null if undecided.
+  function resolveSlot(slot) {
+    if (slot == null) return null;
+    if (teams[slot]) return slot;                       // a real team name
+    var w = String(slot).match(/^Winner\s+M(\d+)$/i);
+    if (w) return winnerOf(+w[1]);
+    var l = String(slot).match(/^Loser\s+M(\d+)$/i);
+    if (l) return loserOf(+l[1]);
+    return null;
+  }
+
+  function decide(match) {
+    // returns { winner, loser } names, or null if not decided
+    if (!match) return null;
+    var home = resolveSlot(match.home), away = resolveSlot(match.away);
+    var ps = parseScore(match.score);
+    if (!home || !away || !ps) return null;
+    var w, l;
+    if (ps.h > ps.a) { w = home; l = away; }
+    else if (ps.a > ps.h) { w = away; l = home; }
+    else if (ps.penH != null) {                          // draw -> penalties
+      if (ps.penH > ps.penA) { w = home; l = away; }
+      else { w = away; l = home; }
+    } else { return null; }                              // tie with no shootout recorded
+    return { winner: w, loser: l };
+  }
+  function winnerOf(id) { var d = decide(byId[id]); return d ? d.winner : null; }
+  function loserOf(id)  { var d = decide(byId[id]); return d ? d.loser  : null; }
+
+  var ROUNDS = [
+    { key: 'R32',   label: 'Round of 32' },
+    { key: 'R16',   label: 'Round of 16' },
+    { key: 'QF',    label: 'Quarter-finals' },
+    { key: 'SF',    label: 'Semi-finals' },
+    { key: 'FINAL', label: 'Final' }
+  ];
+
+  function teamMarkup(slot, scoreNum, isWinner, isLoser, penNum) {
+    var name = resolveSlot(slot);
+    var cls = 'row';
+    var inner;
+    if (name) {
+      var t = teams[name] || { flag: '🏳️', code: '' };
+      if (isWinner) cls += ' win';
+      if (isLoser)  cls += ' lose';
+      var pen = (penNum != null) ? ' <span class="pen">(' + penNum + ' p)</span>' : '';
+      inner = '<span class="flag">' + t.flag + '</span>' +
+              '<span class="name">' + name + ' <small>' + (t.code || '') + '</small></span>' +
+              '<span class="score">' + (scoreNum != null ? scoreNum : '') + pen + '</span>';
+    } else {
+      cls += ' tbd';
+      // show the wiring hint (e.g. "Winner M79") rather than a bare blank
+      inner = '<span class="flag">·</span><span class="name">' + slot + '</span><span class="score"></span>';
+    }
+    return '<div class="' + cls + '">' + inner + '</div>';
+  }
+
+  function matchMarkup(m) {
+    var ps = parseScore(m.score);
+    var d = decide(m);
+    var homeName = resolveSlot(m.home), awayName = resolveSlot(m.away);
+    var hWin = d && d.winner === homeName, aWin = d && d.winner === awayName;
+    var dateStr = m.date || '';
+    var venue = (m.venue || '').split(',')[0];
+    return '<div class="match" title="' + (m.venue || '') + '">' +
+      '<div class="match__meta"><span>M' + m.id + ' · ' + dateStr + '</span><span>' + venue + '</span></div>' +
+      teamMarkup(m.home, ps ? ps.h : null, hWin, d && !hWin && homeName, ps ? ps.penH : null) +
+      teamMarkup(m.away, ps ? ps.a : null, aWin, d && !aWin && awayName, ps ? ps.penA : null) +
+    '</div>';
+  }
+
+  var bracket = document.getElementById('bracket');
+  var html = '';
+  ROUNDS.forEach(function (r) {
+    var ms = data.matches.filter(function (m) { return m.round === r.key; });
+    var isFinal = r.key === 'FINAL';
+    html += '<div class="round' + (isFinal ? ' round--final' : '') + '">';
+    html += '<div class="round__head">' + r.label + '</div>';
+    ms.forEach(function (m) { html += matchMarkup(m); });
+
+    if (isFinal) {
+      // champion banner
+      var champ = winnerOf(104);
+      var t = champ ? (teams[champ] || { flag: '🏆' }) : null;
+      html += '<div class="champion">' +
+                '<div class="lbl">🏆 Champion</div>' +
+                '<div class="who' + (champ ? '' : ' tbd') + '">' +
+                  (champ ? (t.flag + ' ' + champ) : 'To be decided') +
+                '</div></div>';
+      // third-place playoff tucked under the final column
+      var third = data.matches.filter(function (m) { return m.round === '3RD'; });
+      if (third.length) {
+        html += '<div class="third"><div class="round__head">Third place</div>';
+        third.forEach(function (m) { html += matchMarkup(m); });
+        html += '</div>';
+      }
+    }
+    html += '</div>';
+  });
+  bracket.innerHTML = html;
+})();
+</script>
+</body>
+</html>
