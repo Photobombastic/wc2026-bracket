@@ -4,6 +4,33 @@ A self-contained knockout bracket for the FIFA World Cup 2026 that **updates fro
 "Updating" means asking Claude Code to fetch the current scores from the web and rewrite one data file —
 no server, no API key, no cost.
 
+## 👋 Hey Shivam — this is a Claude Code demo
+
+Max built this whole thing in one sitting with **Claude Code** (the AI coding agent in the terminal)
+to show you what it can do. The bracket is the toy; the interesting part is *how* it got made. The
+rough arc was:
+
+1. **Talk it out first.** Before writing any code, Claude asked the one question that actually mattered —
+   *where do "real results" come from?* — instead of guessing. (Answer: it fetches them off the web.)
+2. **Get real data.** It pulled the actual Round-of-32 draw and every team's FIFA ranking off the web,
+   not from memory. When an auto-extracted number looked wrong (it gave South Africa *Canada's* rating),
+   it caught and re-checked it rather than shipping the mistake.
+3. **Build, then prove it works.** It wrote the files, then simulated a full tournament in Node to
+   confirm winners advance all the way to a champion before claiming "done."
+4. **Iterate by just asking.** "Fix the date format." "Add a win % for each team." Each was one sentence;
+   Claude made the change and re-checked it in a headless browser.
+5. **Ship it.** Committed to git and pushed here to GitHub — which is how you're reading this.
+
+**Want to poke at it yourself?** Open this folder in Claude Code and try asking:
+- *"update the bracket results"* — it fetches current scores and fills in winners
+- *"add the group-stage results too"* or *"draw connector lines between the rounds"* — watch it work
+
+Two files worth reading to see how it all fits: **`CLAUDE.md`** (the architecture, written for an AI
+teammate) and **`docs/plans/`** (the design Claude wrote before coding). The rest of this README is the
+"how it works" detail.
+
+---
+
 ## Use it
 
 Double-click **`index.html`** (or open it in any browser). Winners advance automatically as scores come in.
